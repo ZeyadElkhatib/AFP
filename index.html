@@ -559,6 +559,7 @@
 <option value="Fo2sh">Fo2sh</option>
 <option value="Farag">Farag</option>
 
+
           <option value="__add__">+ إضافة مساعد جديد</option></select>
       </div>
 
@@ -1391,8 +1392,8 @@ async function checkDuplicates(){
       return '<div class="duplicate-group '+(g.conflict?'conflict':'')+'">'+
         '<div class="duplicate-head"><div><strong>'+esc(g.studentName||'بدون اسم')+'</strong> <span class="duplicate-meta">ID: '+esc(g.studentId||'-')+' | Number: '+esc(g.studentNumber||'-')+'</span></div>'+
         '<span class="duplicate-badge '+(g.conflict?'conflict':'')+'">'+label+'</span></div>'+
-        '<div class="duplicate-meta">اليوم: <b>'+esc(g.day)+'</b> &nbsp;|&nbsp; السنتر: <b>'+esc(g.center)+'</b> &nbsp;|&nbsp; الامتحان: <b>'+esc(g.exam)+'</b> &nbsp;|&nbsp; عدد السجلات: <b>'+g.count+'</b></div>'+
-        '<div class="duplicate-records">'+g.records.map(r=>'<div class="duplicate-record"><div class="duplicate-record-info"><span>صف الشيت: <b>'+r.row+'</b></span><span>الدرجة: <b>'+esc(r.grade)+'</b></span><span>الحضور: '+esc(r.attendance)+'</span><span>TA: '+esc(r.ta||'-')+'</span></div><button class="delete-duplicate-btn" onclick="deleteDuplicateRow('+r.row+')">حذف هذا الصف</button></div>').join('')+'</div>'+
+        '<div class="duplicate-meta">الامتحان: <b>'+esc(g.exam)+'</b> &nbsp;|&nbsp; عدد السجلات: <b>'+g.count+'</b></div>'+
+        '<div class="duplicate-records">'+g.records.map(r=>'<div class="duplicate-record"><div class="duplicate-record-info"><span>اليوم: <b>'+esc(r.day||g.day||'-')+'</b></span><span>السنتر: <b>'+esc(r.center||g.center||'-')+'</b></span><span>صف الشيت: <b>'+r.row+'</b></span><span>الدرجة: <b>'+esc(r.grade)+'</b></span><span>الحضور: '+esc(r.attendance)+'</span><span>TA: '+esc(r.ta||'-')+'</span></div><button class="delete-duplicate-btn" onclick="deleteDuplicateRow('+r.row+')">حذف هذا الصف</button></div>').join('')+'</div>'+
       '</div>';
     }).join('');
   }catch(e){
