@@ -122,7 +122,7 @@
   .row{margin-bottom:16px;}
   .row:last-child{margin-bottom:0;}
   label{display:block;font-size:13px;color:var(--text-muted);margin-bottom:6px;font-weight:700;}
-  select, input[type=text], input[type=number]{
+  select, input[type=text], input[type=number], input[type=tel]{
     width:100%;
     background:var(--panel-alt);
     border:1px solid var(--border);
@@ -556,10 +556,6 @@
 <option value="rezk">rezk</option>
 <option value="Ashraf">Ashraf</option>
 <option value="3bzaher">3bzaher</option>
-<option value="Fo2sh">Fo2sh</option>
-<option value="Farag">Farag</option>
-
-
           <option value="__add__">+ إضافة مساعد جديد</option></select>
       </div>
 
@@ -568,11 +564,11 @@
         <div class="student-dual-row">
           <div>
             <label>رقم الطالب (Student Number)</label>
-            <input type="text" id="studentNumberInput" placeholder="اكتب رقم الطالب">
+            <input type="tel" inputmode="numeric" pattern="[0-9]*" id="studentNumberInput" placeholder="اكتب رقم الطالب">
           </div>
           <div>
             <label>Student ID</label>
-            <input type="text" id="studentIdInput" placeholder="اكتب الـ ID">
+            <input type="tel" inputmode="numeric" pattern="[0-9]*" id="studentIdInput" placeholder="اكتب الـ ID">
           </div>
         </div>
         <div class="lookup-row" style="margin-top:8px">
@@ -586,9 +582,9 @@
           <label>اسم الطالب الجديد</label>
           <div class="lookup-row">
             <input type="text" id="newStudentName" placeholder="اكتب اسم الطالب بالكامل">
-            <button id="addStudentBtn" type="button">إضافة الطالب</button>
+            <button id="addStudentBtn" type="button">تأكيد بيانات الطالب</button>
           </div>
-          <div class="note">لن يعتبر النظام العملية ناجحة إلا بعد تأكيد Google Sheets أن الطالب تم حفظه فعلياً.</div>
+          <div class="note">التأكيد هنا محلي فقط — لن يتم إرسال أي شيء لجوجل شيتس إلا بعد ما تُدخل الدرجة وحالة الحضور/الواجب وتضيف السجل الكامل لقائمة الانتظار.</div>
           <div class="action-success" id="studentAddSuccess"></div>
         </div>
       </div>
@@ -659,11 +655,11 @@
     <div class="student-dual-row">
       <div>
         <label>رقم الطالب (Student Number)</label>
-        <input type="text" id="editStudentNumberInput" placeholder="اكتب رقم الطالب">
+        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="editStudentNumberInput" placeholder="اكتب رقم الطالب">
       </div>
       <div>
         <label>Student ID</label>
-        <input type="text" id="editStudentIdInput" placeholder="اكتب الـ ID">
+        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="editStudentIdInput" placeholder="اكتب الـ ID">
       </div>
     </div>
     <div class="lookup-row" style="margin-top:8px">
@@ -903,6 +899,10 @@ let localRows=loadLocalRows();
 let syncQueue=loadQueue();
 let batchQueue=loadBatchQueue();
 let selectedDayKey=null,selectedSession=null,selectedHw=null,foundStudent=null,examNumber=1,examType='class';
+// === بحث فوري أثناء الكتابة (Live Search) ===
+// liveSearchTimer: مؤقت الـ debounce بتاع البحث في السيرفر (عشان منبعتش طلب لكل حرف).
+// liveSearchToken: رقم متزايد لكل بحث جديد — يضمن إن رد متأخر من بحث قديم متلخبطش مع القيمة الحالية في الحقل.
+let liveSearchTimer=null,liveSearchToken=0;
 const mockStudents=[
   {number:'20101000001',id:'4001',name:'أحمد سامي'},{number:'20101000002',id:'4002',name:'مريم عادل'},{number:'20101000003',id:'4003',name:'يوسف حسن'},{number:'20101000004',id:'4004',name:'سلمى وليد'},{number:'20101000005',id:'4005',name:'مصطفى نبيل'}
 ];
@@ -948,6 +948,9 @@ function normalizeRows(rows){return (rows||[]).map(r=>Array.isArray(r)?{day:r[0]
 // الشيت مخزَّن فيه أرقام الطلاب بالصيغة الدولية (تبدأ بـ 20...) بينما المستخدم يكتبها محلياً (تبدأ بـ 0...).
 // digitsOnly: يشيل أي رمز غير رقمي (+ مسافات شرطات) حتى تتطابق الصيغتان دائماً بغض النظر عن شكل الكتابة.
 function digitsOnly(v){return String(v??'').replace(/\D/g,'')}
+// enforceDigitsOnly: يمنع فعلياً أي حرف غير رقمي من الاستقرار في خانة رقم الطالب / الـ ID —
+// مش مجرد شكل الكيبورد على الموبايل (pattern وحدها بترسم الكيبورد بس ومش بتمنع اللزق أو الكتابة الفعلية).
+function enforceDigitsOnly(el){const cleaned=digitsOnly(el.value);if(cleaned!==el.value)el.value=cleaned;return cleaned}
 // normalizeStudentNumber: يحوّل الرقم المحلي (0xxxxxxxxxx) تلقائياً لصيغته الدولية (20xxxxxxxxxx) قبل أي مقارنة أو إرسال للسيرفر.
 // أرقام الـ Student ID قصيرة (أقل من 10 خانات) فبيرجعها زي ما هي بعد تنظيف الرموز فقط، من غير أي تحويل.
 function normalizeStudentNumber(v){
@@ -1086,6 +1089,13 @@ function buildQueueRecord(){
 }
 function addToBatch(){
   const rec=buildQueueRecord();if(!rec)return;
+  // لو الطالب ده لسه مش موجود في كاش شيت الطلاب (يعني اتأكد يدوياً للتو ولسه ماتبعتش لجوجل شيتس)،
+  // بنسجله في الكاش المحلي فوراً — عشان لو المستخدم هيضيف امتحان تاني لنفس الطالب في نفس الجلسة،
+  // البحث الفوري يلاقيه على طول من غير ما يحتاج يأكد بياناته تاني. ده تخزين محلي بس، مفيش أي إرسال لجوجل شيتس هنا.
+  const alreadyCached=(studentsSheetCache||[]).some(s=>studentValueMatches(s.number,rec.studentNumber)||studentValueMatches(s.id,rec.studentId));
+  if(!alreadyCached&&(rec.studentNumber||rec.studentId)){
+    saveStudentsSheetCache([...(studentsSheetCache||[]),{number:rec.studentNumber||'',id:rec.studentId||'',name:rec.studentName||''}]);
+  }
   const key=queueKey(rec), existing=batchQueue.findIndex(x=>queueKey(x)===key);
   if(existing>=0){batchQueue[existing]=rec;showBatchStatus('هذا الطالب والامتحان موجودان بالفعل؛ تم تحديث السجل في القائمة.','warn')}else{batchQueue.push(rec);showBatchStatus('✓ تمت إضافة الطالب إلى قائمة الانتظار.','ok')}
   saveBatchQueue();renderBatchQueue();clearMainForm();
@@ -1124,7 +1134,32 @@ document.getElementById('clearQueueBtn').onclick=()=>{if(!batchQueue.length)retu
 document.getElementById('apiTestBtn').onclick=async()=>{try{const d=await apiGet({action:'ping'});setOnline(!!d.success);document.getElementById('apiStatusText').textContent=d.success?'متصل بـ Google Sheets ✓':'تعذر الاتصال'}catch{setOnline(false);document.getElementById('apiStatusText').textContent='بدون اتصال'}};
 document.getElementById('downloadDataBtn').onclick=downloadData;document.getElementById('syncNowBtn').onclick=syncQueueNow;
 // Add student button
-async function addNewStudent(){const n=document.getElementById('studentInput').value.trim(),name=document.getElementById('newStudentName').value.trim(),e=document.getElementById('formErr');if(!n||!name)return e.textContent='أدخل الرقم والاسم',e.style.display='block';const params={action:'student_create',number:n,id:n,name};try{const d=await sendOrQueue(params,{studentNumber:n,studentId:n,studentName:name});foundStudent={number:n,id:n,name};document.getElementById('foundBox').textContent='✓ تمت إضافة الطالب: '+name;document.getElementById('foundBox').style.display='block';document.getElementById('notfoundBox').style.display='none';document.getElementById('newStudentRow').style.display='none';showGlobalSuccess(d.queued?'✓ حُفظ الطالب محلياً.':'✓ تمت إضافة الطالب إلى Google Sheets.')}catch(err){showSyncStatus(err.message,'warn')}}
+// === تأكيد طالب جديد — محلي بالكامل، بدون أي اتصال بالسيرفر هنا ===
+// السبب: قديماً كان الضغط على "تأكيد بيانات الطالب" بيبعت صف ناقص (اسم + رقم بس، بدون درجة) لجوجل شيتس فوراً،
+// وبعدين لما تتسجل الدرجة كان بيتبعت صف تاني منفصل — يعني صفين لنفس الطالب، واحد فاضي وواحد كامل.
+// دلوقتي: التأكيد ده بيثبّت بيانات الطالب في الذاكرة بس (foundStudent)، ومفيش أي إرسال لجوجل شيتس إلا لما
+// الاسم + الرقم + الدرجة + حالة الحضور/الواجب تتجمّع مع بعض في سجل واحد كامل ويتضاف لقائمة الانتظار (Batch Queue).
+// كمان: بنقرأ رقم الطالب والـ ID كل واحد من حقله بشكل مستقل (مش نفس القيمة للاتنين زي قبل كده) — فلو الطالب
+// اتسجل برقمه بس، خانة الـ Student ID بتتبعت فاضية تماماً لجوجل شيتس، عشان شيت الربط الثاني يقدر يلقطها ويربطها
+// بالـ ID الصحيح لاحقاً من غير تكرار أو تعارض.
+function addNewStudent(){
+  const numberInput=document.getElementById('studentNumberInput');
+  const idInput=document.getElementById('studentIdInput');
+  const name=document.getElementById('newStudentName').value.trim();
+  const e=document.getElementById('formErr');
+  e.style.display='none';
+  const number=numberInput.value.trim();
+  const id=idInput.value.trim();
+  if(!number&&!id){e.textContent='أدخل رقم الطالب أو الـ ID أولاً';e.style.display='block';return}
+  if(!name){e.textContent='أدخل اسم الطالب';e.style.display='block';return}
+  foundStudent={number:number,id:id,name:name};
+  document.getElementById('studentInput').value=number||id;
+  document.getElementById('foundBox').textContent='✓ تم تأكيد بيانات الطالب: '+name+' — أكمل إدخال الدرجة الآن، وهيتحفظ كل شيء مع بعض دفعة واحدة.';
+  document.getElementById('foundBox').style.display='block';
+  document.getElementById('notfoundBox').style.display='none';
+  document.getElementById('newStudentRow').style.display='none';
+  const successBox=document.getElementById('studentAddSuccess');if(successBox){successBox.textContent='';successBox.style.display='none'}
+}
 // === مسح نتائج البحث السابقة فوراً عند بداية كل بحث جديد ===
 // يمسح اسم/ID/رقم الطالب السابق من الواجهة، والأهم أنه يصفّر متغيّر foundStudent نفسه
 // حتى لا يتم أبداً ربط درجة جديدة ببيانات طالب قديم بالخطأ لو فشل البحث الجديد.
@@ -1135,11 +1170,60 @@ function resetStudentLookupUI(){
   notfoundBox.style.display='none';
   document.getElementById('newStudentRow').style.display='none';
 }
+// === عرض نتيجة "تم العثور على الطالب" في الواجهة — نقطة واحدة مشتركة يستخدمها البحث اليدوي والبحث الفوري ===
+// ملحوظة: لا نغيّر قيمة الحقل اللي المستخدم بيكتب فيه دلوقتي (document.activeElement) حتى لا نقطع كتابته أو نحرّك المؤشر.
+function showFoundStudent(s){
+  foundStudent=s;
+  const numberInput=document.getElementById('studentNumberInput');
+  const idInput=document.getElementById('studentIdInput');
+  const hiddenInput=document.getElementById('studentInput');
+  if(document.activeElement!==numberInput) numberInput.value=s.number||numberInput.value||'';
+  if(document.activeElement!==idInput) idInput.value=s.id||idInput.value||'';
+  hiddenInput.value=s.number||s.id||'';
+  document.getElementById('foundBox').textContent='الطالب: '+s.name+' (رقم: '+(s.number||'—')+' / ID: '+(s.id||'—')+')';
+  document.getElementById('foundBox').style.display='block';
+  document.getElementById('notfoundBox').style.display='none';
+  document.getElementById('newStudentRow').style.display='none';
+}
+function showNotFoundStudent(v,message){
+  document.getElementById('studentInput').value=v;
+  document.getElementById('notfoundBox').textContent=message||'لم يتم العثور على طالب بهذا الرقم — يمكنك إدخال اسم الطالب يدوياً لإضافته تلقائياً للقاعدة.';
+  document.getElementById('notfoundBox').style.display='block';
+  document.getElementById('newStudentRow').style.display='block';
+}
+// === البحث الفوري أثناء الكتابة (Live Search) ===
+// بيتنفّذ مع كل حرف يتكتب في رقم الطالب أو الـ ID، من غير الحاجة لأي زرار:
+// 1) فحص فوري (Zero Lag) من الكاش المحلي لشيت الطلاب — نتيجة لحظية بدون أي انتظار شبكة.
+// 2) لو مفيش تطابق فوري، بعد توقف قصير عن الكتابة (250ms، Debounce) بيتسأل السيرفر — عشان منبعتش طلب شبكة لكل حرف.
+// liveSearchToken بيضمن إن نتيجة بحث قديمة (لقيمة اتغيّرت بالفعل) متطلعش فوق النتيجة الحالية لو وصلت متأخرة.
+function liveStudentSearch(){
+  clearTimeout(liveSearchTimer);
+  const myToken=++liveSearchToken;
+  const numberInput=document.getElementById('studentNumberInput');
+  const idInput=document.getElementById('studentIdInput');
+  const vId=idInput.value.trim(), vNumber=numberInput.value.trim();
+  const v=vId||vNumber;
+  if(!v){resetStudentLookupUI();return;}
+  const cachedHit=(studentsSheetCache||[]).find(rec=>studentValueMatches(rec.id,v)||studentValueMatches(rec.number,v));
+  if(cachedHit){showFoundStudent(cachedHit);return;}
+  resetStudentLookupUI();
+  liveSearchTimer=setTimeout(async()=>{
+    if(myToken!==liveSearchToken)return; // القيمة اتغيّرت قبل ما يجهز الرد — تجاهله
+    try{
+      const s=await lookupStudentFromSheet(v);
+      if(myToken!==liveSearchToken)return;
+      if(s)showFoundStudent(s);else showNotFoundStudent(v);
+    }catch(e){
+      if(myToken!==liveSearchToken)return;
+      showNotFoundStudent(v,'تعذر البحث في شيت بيانات الطلاب: '+e.message);
+    }
+  },250);
+}
 async function runStudentLookup(){
   const btn=document.getElementById('lookupBtn');
   const numberInput=document.getElementById('studentNumberInput');
   const idInput=document.getElementById('studentIdInput');
-  const hiddenInput=document.getElementById('studentInput');
+  clearTimeout(liveSearchTimer);liveSearchToken++; // إلغاء أي بحث فوري معلّق حتى لا يتضارب مع البحث اليدوي هنا
   resetStudentLookupUI();
   const vId=idInput.value.trim(), vNumber=numberInput.value.trim();
   const v=vId||vNumber;
@@ -1149,23 +1233,9 @@ async function runStudentLookup(){
   const oldText=btn.textContent;btn.textContent='جاري البحث...';
   try{
     const s=await lookupStudentFromSheet(v);
-    if(s){
-      foundStudent=s;
-      numberInput.value=s.number||vNumber||'';
-      idInput.value=s.id||vId||'';
-      hiddenInput.value=s.number||s.id||v;
-      document.getElementById('foundBox').textContent='الطالب: '+s.name+' (رقم: '+(s.number||'—')+' / ID: '+(s.id||'—')+')';
-      document.getElementById('foundBox').style.display='block';
-    }else{
-      hiddenInput.value=v;
-      document.getElementById('notfoundBox').textContent='لم يتم العثور على طالب بهذا الرقم — يمكنك إدخال اسم الطالب يدوياً لإضافته تلقائياً للقاعدة.';
-      document.getElementById('notfoundBox').style.display='block';
-      document.getElementById('newStudentRow').style.display='block';
-    }
+    if(s)showFoundStudent(s);else showNotFoundStudent(v);
   }catch(e){
-    hiddenInput.value=v;
-    document.getElementById('notfoundBox').textContent='تعذر البحث في شيت بيانات الطلاب: '+e.message;
-    document.getElementById('notfoundBox').style.display='block';
+    showNotFoundStudent(v,'تعذر البحث في شيت بيانات الطلاب: '+e.message);
   }finally{
     btn.dataset.busy='0';btn.disabled=false;btn.classList.remove('loading');btn.textContent=oldText;
   }
@@ -1173,14 +1243,9 @@ async function runStudentLookup(){
 document.getElementById('lookupBtn').onclick=runStudentLookup;
 document.getElementById('studentNumberInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runStudentLookup()}});
 document.getElementById('studentIdInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runStudentLookup()}});
-document.getElementById('studentNumberInput').addEventListener('blur',()=>{
-  const number=document.getElementById('studentNumberInput').value.trim();
-  const id=document.getElementById('studentIdInput').value.trim();
-  if(number&&!id) runStudentLookup();
-});
-// عند الكتابة الفعلية في أحد الحقلين، يُفرَّغ الحقل الآخر تلقائياً — يمنع بقاء قيمة قديمة (من بحث سابق) تتحكم في نتيجة البحث الجديد.
-document.getElementById('studentNumberInput').addEventListener('input',()=>{const idF=document.getElementById('studentIdInput');if(idF.value)idF.value=''});
-document.getElementById('studentIdInput').addEventListener('input',()=>{const numF=document.getElementById('studentNumberInput');if(numF.value)numF.value=''});
+// عند الكتابة الفعلية في أحد الحقلين: يُفرَّغ الحقل الآخر تلقائياً (يمنع تداخل قيمة قديمة)، وبعدها البحث الفوري يشتغل على طول.
+document.getElementById('studentNumberInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const idF=document.getElementById('studentIdInput');if(idF.value)idF.value='';liveStudentSearch();});
+document.getElementById('studentIdInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const numF=document.getElementById('studentNumberInput');if(numF.value)numF.value='';liveStudentSearch();});
 document.getElementById('addStudentBtn').onclick=addNewStudent;
 
 function renderLog(){const body=document.getElementById('logBody'),table=document.getElementById('logTable'),empty=document.getElementById('logEmpty');if(!localRows.length){table.style.display='none';empty.style.display='block';return}empty.style.display='none';table.style.display='table';body.innerHTML=localRows.slice(-50).reverse().map(r=>'<tr><td>'+esc(r.day)+'</td><td>'+esc(r.center)+'</td><td>'+esc(r.ta)+'</td><td>'+esc(r.studentName)+'</td><td>'+esc(r.exam)+'</td><td>'+esc(r.grade)+'</td><td>'+esc(r.hw)+'</td><td></td></tr>').join('')}
@@ -1353,8 +1418,8 @@ document.getElementById('editStudentNumberInput').addEventListener('blur',()=>{
   const id=document.getElementById('editStudentIdInput').value.trim();
   if(number&&!id) editLookup();
 });
-document.getElementById('editStudentNumberInput').addEventListener('input',()=>{const idF=document.getElementById('editStudentIdInput');if(idF.value)idF.value=''});
-document.getElementById('editStudentIdInput').addEventListener('input',()=>{const numF=document.getElementById('editStudentNumberInput');if(numF.value)numF.value=''});
+document.getElementById('editStudentNumberInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const idF=document.getElementById('editStudentIdInput');if(idF.value)idF.value=''});
+document.getElementById('editStudentIdInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const numF=document.getElementById('editStudentNumberInput');if(numF.value)numF.value=''});
 
 window.updateEdited=async function(i){const r=window.__editRecords[i],max=String(r.examType||'').includes('شامل')?60:10,g=document.getElementById('editg_'+i),v=Number(g.value),alert=document.getElementById('editAlert');if(!Number.isFinite(v)||v<0||v>max)return alert.textContent='الدرجة يجب أن تكون من 0 إلى '+max,alert.style.display='block';try{const d=await apiGet({action:'grade_update',row:r.row,grade:v,attendance:'حاضر في ميعاده'});if(!d.success)throw Error(d.message);showGlobalSuccess('✓ تم تعديل الدرجة بنجاح');editLookup()}catch(e){alert.textContent='تعذر تعديل الدرجة: '+e.message;alert.style.display='block'}};
 document.getElementById('editLookupBtn').onclick=editLookup;
