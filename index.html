@@ -2,6 +2,27 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<!-- === منع الكاش القديم بعد أي تحديث على GitHub ===
+     الملف ده كله سكريبت وستايل مضمّنين (Inline) جوه ملف HTML واحد، مفيش ملفات .js/.css خارجية منفصلة
+     نقدر نضيف ليها ?v=timestamp زي التقنية المعتادة. البديل المكافئ لملف واحد زي ده: أول ما الصفحة تتفتح
+     بأي رابط "نضيف" (من غير باراميتر v=)، السكريبت ده بيحوّلها فورًا لنفس الرابط مع v= بقيمة الوقت الحالي.
+     أي كاش (المتصفح أو CDN بتاع GitHub Pages) بيتعامل مع الرابط الجديد ده كأنه ملف مختلف تمامًا لأول مرة،
+     فبيجيب أحدث نسخة من الشيت من السيرفر بدل ما يورّي نسخة قديمة متخزنة. التحويل بيحصل مرة واحدة بس
+     (بعدها الرابط بقى فيه v=) فمفيش أي احتمال لحلقة تحويل لا نهائية. -->
+<script>
+(function(){
+  try{
+    if(location.search.indexOf('v=')===-1){
+      var url=new URL(location.href);
+      url.searchParams.set('v',Date.now());
+      location.replace(url.toString());
+    }
+  }catch(e){}
+})();
+</script>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>منصة الأستاذ أحمد فاروق — V18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -934,6 +955,39 @@ function saveBatchQueue(){
   localStorage.setItem(BATCH_QUEUE_KEY,JSON.stringify(batchQueue));
   localStorage.setItem(OFFLINE_BACKUP_KEY,JSON.stringify(payload));
 }
+// === حفظ مسودة الفورم الحالي (السجل اللي لسه مضافش لقائمة الانتظار) ===
+// batchQueue نفسه محفوظ فعلاً في localStorage مع كل تعديل (saveBatchQueue أعلاه)، لكن الفورم اللي لسه بيتملى
+// (اليوم/السنتر المختارين، بيانات الطالب، الدرجة، الحضور، الواجب) ملوش أي حفظ خالص — لو حصل تبديل تطبيقات
+// أو قفل شاشة وChrome قرر يفضي التاب (Tab Discard) بسبب الذاكرة، السجل ده كان بيضيع بالكامل. الحل: نخزّن
+// نسخة كاملة منه فورياً مع أي تغيير (كتابة/اختيار)، ونرجّعها تلقائياً أول ما الصفحة تفتح تاني.
+const FORM_DRAFT_KEY='ahmed_farouk_form_draft_v1';
+const FORM_DRAFT_MAX_AGE_MS=24*60*60*1000; // نتجاهل أي مسودة أقدم من يوم كامل حتى لا تظهر بيانات قديمة بالغلط
+function saveFormDraft(){
+  try{
+    const draft={
+      selectedDayKey,selectedSession,examType,examNumber,
+      comprehensiveNumber:document.getElementById('comprehensiveNumberSelect')?.value||'1',
+      ta:document.getElementById('taSelect')?.value||'',
+      studentNumber:document.getElementById('studentNumberInput')?.value||'',
+      studentId:document.getElementById('studentIdInput')?.value||'',
+      foundStudent,
+      newStudentName:document.getElementById('newStudentName')?.value||'',
+      grade:document.getElementById('gradeInput')?.value||'',
+      selectedHw,attendanceStatus,
+      savedAt:Date.now()
+    };
+    localStorage.setItem(FORM_DRAFT_KEY,JSON.stringify(draft));
+  }catch(e){}
+}
+function loadFormDraft(){
+  try{
+    const raw=localStorage.getItem(FORM_DRAFT_KEY);if(!raw)return null;
+    const draft=JSON.parse(raw);
+    if(!draft||!draft.savedAt||Date.now()-draft.savedAt>FORM_DRAFT_MAX_AGE_MS)return null;
+    return draft;
+  }catch(e){return null}
+}
+function clearFormDraft(){try{localStorage.removeItem(FORM_DRAFT_KEY)}catch(e){}}
 function showBatchStatus(m,type='ok'){const e=document.getElementById('batchStatus');if(!e)return;e.textContent=m;e.className='batch-status '+type;e.style.display='block'}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function withTimeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return{signal:c.signal,clear:()=>clearTimeout(t)}}
@@ -1077,6 +1131,7 @@ function clearMainForm(){
   attRow.querySelectorAll('.status-pill').forEach(x=>x.classList.toggle('active',x.dataset.att==='حاضر في ميعاده'));
   gradeInput.disabled=false;document.getElementById('foundBox').style.display='none';document.getElementById('notfoundBox').style.display='none';document.getElementById('newStudentRow').style.display='none';document.getElementById('formErr').style.display='none';document.getElementById('gradeErr').textContent='';document.getElementById('gradeErr').style.display='none';document.getElementById('maxGradeNote').textContent='الحد الأقصى للدرجة: '+getMaxGrade();
   document.querySelectorAll('.hw-opt').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-pressed','false')});
+  clearFormDraft(); // السجل خلص أو اتمسح يدوياً — مفيش حاجة ناقصة نحميها دلوقتي
 }
 
 function buildQueueRecord(){
@@ -1186,12 +1241,14 @@ function showFoundStudent(s){
   document.getElementById('foundBox').style.display='block';
   document.getElementById('notfoundBox').style.display='none';
   document.getElementById('newStudentRow').style.display='none';
+  saveFormDraft();
 }
 function showNotFoundStudent(v,message){
   document.getElementById('studentInput').value=v;
   document.getElementById('notfoundBox').textContent=message||'لم يتم العثور على طالب بهذا الرقم — يمكنك إدخال اسم الطالب يدوياً لإضافته تلقائياً للقاعدة.';
   document.getElementById('notfoundBox').style.display='block';
   document.getElementById('newStudentRow').style.display='block';
+  saveFormDraft();
 }
 // === البحث الفوري أثناء الكتابة (Live Search) ===
 // بيتنفّذ مع كل حرف يتكتب في رقم الطالب أو الـ ID، من غير الحاجة لأي زرار:
@@ -1249,6 +1306,55 @@ document.getElementById('studentIdInput').addEventListener('keydown',e=>{if(e.ke
 document.getElementById('studentNumberInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const idF=document.getElementById('studentIdInput');if(idF.value)idF.value='';liveStudentSearch();});
 document.getElementById('studentIdInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const numF=document.getElementById('studentNumberInput');if(numF.value)numF.value='';liveStudentSearch();});
 document.getElementById('addStudentBtn').onclick=addNewStudent;
+// أي تفاعل في نموذج الإدخال كله (كتابة/اختيار يوم أو سنتر أو TA/ضغط زر واجب أو حضور) بيحفظ المسودة فورًا.
+// الاعتماد على التفويض (Delegation) هنا بدل تعديل كل هاندلر لوحده — أي عنصر جوه الفورم، حتى لو اتعمل ديناميكياً
+// (زي أزرار الأيام والسناتر)، الحدث بيه بيوصل لهنا (Bubbling) بعد ما الهاندلر بتاعه يشتغل ويحدّث الحالة.
+const publicEditSection=document.getElementById('publicEditSection');
+publicEditSection.addEventListener('input',saveFormDraft);
+publicEditSection.addEventListener('change',saveFormDraft);
+publicEditSection.addEventListener('click',saveFormDraft);
+// === استرجاع المسودة عند فتح الصفحة ===
+function restoreFormDraft(){
+  const draft=loadFormDraft();
+  if(!draft)return;
+  if(draft.selectedDayKey)selectedDayKey=draft.selectedDayKey;
+  if(draft.selectedSession)selectedSession=draft.selectedSession;
+  if(draft.examType){
+    examType=draft.examType;
+    const sel=document.getElementById('examTypeSelect');
+    if(sel){sel.value=draft.examType;sel.dispatchEvent(new Event('change'));} // يعيد استخدام منطق onchange الأصلي (إظهار/إخفاء الحقول المرتبطة)
+  }
+  if(draft.examNumber)examNumber=draft.examNumber;
+  if(draft.comprehensiveNumber){const cs=document.getElementById('comprehensiveNumberSelect');if(cs)cs.value=draft.comprehensiveNumber;}
+  if(draft.ta){const ta=document.getElementById('taSelect');if(ta&&[...ta.options].some(o=>o.value===draft.ta))ta.value=draft.ta;}
+  if(draft.studentNumber)document.getElementById('studentNumberInput').value=draft.studentNumber;
+  if(draft.studentId)document.getElementById('studentIdInput').value=draft.studentId;
+  if(draft.newStudentName)document.getElementById('newStudentName').value=draft.newStudentName;
+  if(draft.foundStudent){
+    showFoundStudent(draft.foundStudent); // بيانات طالب جديد اتأكدت محلياً بس (مش موجودة في أي كاش) — رجّعها زي ما هي بدل إعادة البحث
+  }else if(draft.studentNumber||draft.studentId){
+    liveStudentSearch(); // نحاول نلاقي الطالب تاني (لو كان بحث اتقطع قبل ما يخلص)
+  }
+  // الحضور: بنطبّق نفس تأثير الضغط على الزرار المرئي بس من غير أي فراغ إجباري لخانة الدرجة (الضغط الحقيقي على الزرار بيصفّرها عمداً)
+  if(draft.attendanceStatus){
+    attendanceStatus=draft.attendanceStatus;
+    const attSection=document.getElementById('attendanceRow');
+    if(attSection)attSection.querySelectorAll('.status-pill').forEach(x=>x.classList.toggle('active',x.dataset.att===attendanceStatus));
+    document.getElementById('gradeInput').disabled=attendanceStatus==='متأخر';
+  }
+  if(draft.grade!=null&&attendanceStatus!=='متأخر')gradeInput.value=draft.grade;
+  if(draft.selectedHw)setHw(draft.selectedHw);
+  validateGrade(false);
+  showGlobalSuccess('✓ تم استرجاع بيانات لم تكن محفوظة — أكمل من حيث توقفت.');
+}
+// === حماية إضافية عند الخروج من الصفحة أو التبديل بين التطبيقات ===
+// visibilitychange هو الأدق للموبايل (بيتفعل فور تصغير المتصفح أو التبديل لتطبيق تاني، حتى لو الصفحة مترفعتش خالص).
+// pagehide بيتفعل عند مغادرة الصفحة فعلياً (تصفح لصفحة تانية / إغلاق التاب) — بيشتغل على الموبايل بشكل أوثق من beforeunload.
+// beforeunload بيغطي إغلاق نافذة/تاب الديسكتوب. الثلاثة مع بعض بيضمنوا إن آخر حالة للفورم متحفظة دايماً قبل أي خروج.
+function flushAllPendingData(){saveFormDraft();saveBatchQueue();}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushAllPendingData();});
+window.addEventListener('pagehide',flushAllPendingData);
+window.addEventListener('beforeunload',flushAllPendingData);
 
 function renderLog(){const body=document.getElementById('logBody'),table=document.getElementById('logTable'),empty=document.getElementById('logEmpty');if(!localRows.length){table.style.display='none';empty.style.display='block';return}empty.style.display='none';table.style.display='table';body.innerHTML=localRows.slice(-50).reverse().map(r=>'<tr><td>'+esc(r.day)+'</td><td>'+esc(r.center)+'</td><td>'+esc(r.ta)+'</td><td>'+esc(r.studentName)+'</td><td>'+esc(r.exam)+'</td><td>'+esc(r.grade)+'</td><td>'+esc(r.hw)+'</td><td></td></tr>').join('')}
 // Comprehensive grades — protected section. Uses Google Sheets data when online and local cache offline.
@@ -1484,7 +1590,7 @@ async function deleteDuplicateRow(row){
 document.getElementById('checkDuplicatesBtn').onclick=checkDuplicates;
 lockProtectedArea();
 window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
-renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;downloadStudentsSheetData().catch(()=>{})}}
+renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;downloadStudentsSheetData().catch(()=>{})}}
 </script>
 </body>
 </html>
