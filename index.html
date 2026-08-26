@@ -630,7 +630,7 @@
 
       <div class="api-panel" id="apiPanel">
         <div><strong>حالة الربط:</strong> <span id="apiStatusText">جاري التحقق...</span></div><div class="offline-banner" id="offlineBanner"></div>
-        <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button><button type="button" id="syncIdsBtn">مزامنة الـ ID الناقصة</button>
+        <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button>
       </div>
 
       <div class="batch-actions">
@@ -749,6 +749,9 @@
   <div class="card">
     <div class="duplicate-toolbar">
       <button class="primary" id="checkDuplicatesBtn">فحص التكرارات</button>
+      <button type="button" id="syncIdsBtn">مزامنة الـ ID الناقصة</button>
+      <button type="button" id="selectAllDupBtn" style="display:none">تحديد الكل</button>
+      <button type="button" id="deleteSelectedDupBtn" class="delete-duplicate-btn" style="display:none">حذف المحدد (<span id="selectedDupCount">0</span>)</button>
       <span class="report-count">يفحص نفس الطالب + اليوم + السنتر + الامتحان، ويعرض أي صفوف مكررة حتى لو كانت الدرجات مختلفة.</span>
     </div>
     <div class="report-alert" id="duplicateAlert"></div>
@@ -991,8 +994,8 @@ function clearFormDraft(){try{localStorage.removeItem(FORM_DRAFT_KEY)}catch(e){}
 function showBatchStatus(m,type='ok'){const e=document.getElementById('batchStatus');if(!e)return;e.textContent=m;e.className='batch-status '+type;e.style.display='block'}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function withTimeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return{signal:c.signal,clear:()=>clearTimeout(t)}}
-async function apiGet(params){const url=API_ENDPOINT+'?'+new URLSearchParams(params);const t=withTimeout(12000);try{const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
-async function apiPost(action,payload){const t=withTimeout(20000);try{const r=await fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:action,...payload}),signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
+async function apiGet(params){const url=API_ENDPOINT+'?'+new URLSearchParams(params);const t=withTimeout(35000);try{const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
+async function apiPost(action,payload){const t=withTimeout(45000);try{const r=await fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:action,...payload}),signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
 function setOnline(v){apiOnline=v;const el=document.getElementById('offlineBanner');if(el){el.textContent=v?'🟢 متصل — البيانات تُرسل مباشرة إلى Google Sheets.':'🟠 بدون إنترنت — العمل محفوظ محلياً وسيتم رفعه تلقائياً عند عودة الاتصال.';el.style.display='block'}}
 async function syncQueueNow(){if(!navigator.onLine||!syncQueue.length)return;const remaining=[];for(const item of syncQueue){try{const r=await apiGet(item);if(!r.success)throw Error(r.message||'Sync failed')}catch(e){remaining.push(item)}}syncQueue=remaining;saveQueue();showSyncStatus(remaining.length?('باقي '+remaining.length+' عملية للمزامنة.'): 'تمت المزامنة بنجاح.','ok')}
 function showSyncStatus(m,type=''){const e=document.getElementById('syncStatus');if(e){e.textContent=m;e.className='sync-status '+type;e.style.display=m?'block':'none'}}
@@ -1021,8 +1024,10 @@ function studentValueMatches(a,b){
   return !!na&&!!nb&&na===nb;
 }
 async function downloadData(){
-  try{const d=await apiGet({action:'all_data'});if(!d.success)throw Error(d.message||'فشل تنزيل البيانات');cacheRows(normalizeRows(d.rows));renderLog();if(typeof refreshReportCacheUI==='function')refreshReportCacheUI()}
+  const t=withTimeout(60000);
+  try{const r=await fetch(API_ENDPOINT+'?'+new URLSearchParams({action:'all_data'}),{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(!d.success)throw Error(d.message||'فشل تنزيل البيانات');cacheRows(normalizeRows(d.rows));renderLog();if(typeof refreshReportCacheUI==='function')refreshReportCacheUI()}
   catch(e){showSyncStatus('✕ تعذر تنزيل بيانات السجلات: '+e.message,'err');throw e}
+  finally{t.clear()}
   try{await downloadStudentsSheetData();showSyncStatus('✓ تم تنزيل بيانات السجلات وبيانات الطلاب محلياً. تعمل المنصة والبحث الآن حتى بدون إنترنت.','ok')}
   catch(e){showSyncStatus('✓ تم تنزيل بيانات السجلات، لكن تعذر تنزيل شيت بيانات الطلاب: '+e.message,'warn')}
 }
@@ -1166,17 +1171,30 @@ function exportQueueExcel(){
 }
 async function syncBatchQueueNow(){
   if(!navigator.onLine||!batchQueue.length)return;
+  if(window.__syncInProgress)return; window.__syncInProgress=true;
   const items=batchQueue.slice();showBatchStatus('جاري رفع '+items.length+' طالب دفعة واحدة...','warn');
-  try{
-    const d=await apiPost('batch_grade_create',{records:items});
-    if(!d.success)throw Error(d.message||'فشل رفع القائمة');
-    const uploadedKeys=new Set(items.map(queueKey));
-    items.forEach(r=>{const idx=localRows.findIndex(x=>queueKey(x)===queueKey(r));if(idx>=0)localRows[idx]=r;else localRows.push(r)});saveLocalRows();
-    batchQueue=batchQueue.filter(r=>!uploadedKeys.has(queueKey(r)));saveBatchQueue();renderBatchQueue();
-    showBatchStatus('✓ تم حفظ الجميع: '+(d.created||0)+' جديد، '+(d.updated||0)+' تحديث.','ok');showSyncStatus('✓ تمت مزامنة القائمة بالكامل مع Google Sheets.','ok');renderLog();
-    // فحص تلقائي للتعارضات بعد المزامنة الناجحة.
-    if(protectedArea?.classList.contains('unlocked')) setTimeout(()=>checkDuplicates(),300);
-  }catch(e){showBatchStatus('تعذر الرفع الآن. القائمة محفوظة محلياً وستتم إعادة المحاولة تلقائياً.','warn');showSyncStatus('🟠 ما زالت هناك بيانات محلية في الانتظار.','warn')}
+  const maxAttempts=3;
+  for(let attempt=1;attempt<=maxAttempts;attempt++){
+    try{
+      const d=await apiPost('batch_grade_create',{records:items});
+      if(!d.success)throw Error(d.message||'فشل رفع القائمة');
+      const uploadedKeys=new Set(items.map(queueKey));
+      items.forEach(r=>{const idx=localRows.findIndex(x=>queueKey(x)===queueKey(r));if(idx>=0)localRows[idx]=r;else localRows.push(r)});saveLocalRows();
+      batchQueue=batchQueue.filter(r=>!uploadedKeys.has(queueKey(r)));saveBatchQueue();renderBatchQueue();
+      showBatchStatus('✓ تم حفظ الجميع: '+(d.created||0)+' جديد، '+(d.updated||0)+' تحديث.','ok');showSyncStatus('✓ تمت مزامنة القائمة بالكامل مع Google Sheets.','ok');renderLog();
+      if(protectedArea?.classList.contains('unlocked')) setTimeout(()=>checkDuplicates(),300);
+      window.__syncInProgress=false; return;
+    }catch(e){
+      if(attempt<maxAttempts){
+        showBatchStatus('محاولة '+attempt+' فشلت، جاري إعادة المحاولة...','warn');
+        await new Promise(res=>setTimeout(res,1500*attempt));
+      }else{
+        showBatchStatus('تعذر الرفع بعد '+maxAttempts+' محاولات: '+(e&&e.message||e)+'. القائمة محفوظة محلياً وستتم إعادة المحاولة تلقائياً عند أي تحديث لاحق.','warn');
+        showSyncStatus('🟠 ما زالت هناك بيانات محلية في الانتظار.','warn');
+      }
+    }
+  }
+  window.__syncInProgress=false;
 }
 async function uploadAll(){
   if(!batchQueue.length){showBatchStatus('قائمة الانتظار فارغة. أضف طلاباً أولاً.','warn');return}
@@ -1590,7 +1608,7 @@ async function deleteDuplicateRow(row){
 document.getElementById('checkDuplicatesBtn').onclick=checkDuplicates;
 lockProtectedArea();
 window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
-renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;downloadStudentsSheetData().catch(()=>{})}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;downloadData().catch(()=>{})}}
+renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;setTimeout(()=>downloadStudentsSheetData().catch(()=>{}),500)}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;setTimeout(()=>downloadData().catch(()=>{}),3000)}}
 </script>
 </body>
 </html>
