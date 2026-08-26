@@ -1166,20 +1166,24 @@ function addToBatch(){
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
 function exportQueueExcel(){
   if(!batchQueue.length){showBatchStatus('القائمة فارغة، لا يوجد شيء لتصديره.','warn');return}
-  const headers=['Day','Center','Exam Number','TA','Student Number','Student ID','Student Name','Grade','Homework','Attendance','Exam Type'];
-  const lines=[headers.map(csvCell).join(','),...batchQueue.map(r=>headers.map(h=>csvCell(r[{Day:'day',Center:'center','Exam Number':'exam',TA:'ta','Student Number':'studentNumber','Student ID':'studentId','Student Name':'studentName',Grade:'grade',Homework:'hw',Attendance:'attendance','Exam Type':'examType'}[h]])).join(','))];
+  function findSessionTime(day,center){const d=scheduleData.find(x=>x.label===day);const s=d&&d.sessions.find(x=>x.center===center);return s?s.time:''}
+  const headers=['Day','Center','Exam Number','TA','Student Number','Student ID','Student Name','Grade','Homework','Attendance','Exam Type','Summary'];
+  const lines=[headers.map(csvCell).join(','),...batchQueue.map(r=>{
+    const summary='Exam'+String(r.exam||'').replace(/\D/g,'')+'-'+(r.ta||'')+'-'+(r.center||'')+' ('+findSessionTime(r.day,r.center)+')';
+    return headers.map(h=>h==='Summary'?csvCell(summary):csvCell(r[{Day:'day',Center:'center','Exam Number':'exam',TA:'ta','Student Number':'studentNumber','Student ID':'studentId','Student Name':'studentName',Grade:'grade',Homework:'hw',Attendance:'attendance','Exam Type':'examType'}[h]])).join(',');
+  })];
   const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Ahmed_Farouk_Queue_'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);showBatchStatus('✓ تم تصدير القائمة لفتحها في Excel.','ok')
 }
 async function syncBatchQueueNow(){
   if(!navigator.onLine||!batchQueue.length)return;
   if(window.__syncInProgress)return; window.__syncInProgress=true;
   const items=batchQueue.slice();showBatchStatus('جاري رفع '+items.length+' طالب دفعة واحدة...','warn');
-  const maxAttempts=3;
+  const maxAttempts=6;
   for(let attempt=1;attempt<=maxAttempts;attempt++){
     try{
       let d;
-      try{ d=await apiPostViaGet('batch_grade_create',{records:items}); }
-      catch(e1){ d=await apiPost('batch_grade_create',{records:items}); }
+      try{ d=await apiPost('batch_grade_create',{records:items}); }
+      catch(e1){ d=await apiPostViaGet('batch_grade_create',{records:items}); }
       if(!d.success)throw Error(d.message||'فشل رفع القائمة');
       const uploadedKeys=new Set(items.map(queueKey));
       items.forEach(r=>{const idx=localRows.findIndex(x=>queueKey(x)===queueKey(r));if(idx>=0)localRows[idx]=r;else localRows.push(r)});saveLocalRows();
@@ -1189,8 +1193,9 @@ async function syncBatchQueueNow(){
       window.__syncInProgress=false; return;
     }catch(e){
       if(attempt<maxAttempts){
-        showBatchStatus('محاولة '+attempt+' فشلت، جاري إعادة المحاولة...','warn');
-        await new Promise(res=>setTimeout(res,1500*attempt));
+        showBatchStatus('محاولة '+attempt+' فشلت ('+(e&&e.message||e)+')، جاري إعادة المحاولة...','warn');
+        const delay=Math.min(15000,1000*Math.pow(2,attempt))+Math.random()*500;
+        await new Promise(res=>setTimeout(res,delay));
       }else{
         showBatchStatus('تعذر الرفع بعد '+maxAttempts+' محاولات: '+(e&&e.message||e)+'. القائمة محفوظة محلياً وستتم إعادة المحاولة تلقائياً عند أي تحديث لاحق.','warn');
         showSyncStatus('🟠 ما زالت هناك بيانات محلية في الانتظار.','warn');
