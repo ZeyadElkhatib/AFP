@@ -995,6 +995,7 @@ function showBatchStatus(m,type='ok'){const e=document.getElementById('batchStat
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function withTimeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort('timeout'),ms);return{signal:c.signal,clear:()=>clearTimeout(t)}}
 async function apiGet(params){const url=API_ENDPOINT+'?'+new URLSearchParams(params);const t=withTimeout(45000);try{const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
+async function apiPostViaGet(action,payload){const t=withTimeout(90000);try{const url=API_ENDPOINT+'?action='+encodeURIComponent(action)+'&payload='+encodeURIComponent(JSON.stringify(payload));const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
 async function apiPost(action,payload){const t=withTimeout(90000);try{const r=await fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:action,...payload}),signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
 function setOnline(v){apiOnline=v;const el=document.getElementById('offlineBanner');if(el){el.textContent=v?'🟢 متصل — البيانات تُرسل مباشرة إلى Google Sheets.':'🟠 بدون إنترنت — العمل محفوظ محلياً وسيتم رفعه تلقائياً عند عودة الاتصال.';el.style.display='block'}}
 async function syncQueueNow(){if(!navigator.onLine||!syncQueue.length)return;const remaining=[];for(const item of syncQueue){try{const r=await apiGet(item);if(!r.success)throw Error(r.message||'Sync failed')}catch(e){remaining.push(item)}}syncQueue=remaining;saveQueue();showSyncStatus(remaining.length?('باقي '+remaining.length+' عملية للمزامنة.'): 'تمت المزامنة بنجاح.','ok')}
@@ -1176,7 +1177,9 @@ async function syncBatchQueueNow(){
   const maxAttempts=3;
   for(let attempt=1;attempt<=maxAttempts;attempt++){
     try{
-      const d=await apiPost('batch_grade_create',{records:items});
+      let d;
+      try{ d=await apiPostViaGet('batch_grade_create',{records:items}); }
+      catch(e1){ d=await apiPost('batch_grade_create',{records:items}); }
       if(!d.success)throw Error(d.message||'فشل رفع القائمة');
       const uploadedKeys=new Set(items.map(queueKey));
       items.forEach(r=>{const idx=localRows.findIndex(x=>queueKey(x)===queueKey(r));if(idx>=0)localRows[idx]=r;else localRows.push(r)});saveLocalRows();
