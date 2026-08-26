@@ -630,7 +630,7 @@
 
       <div class="api-panel" id="apiPanel">
         <div><strong>حالة الربط:</strong> <span id="apiStatusText">جاري التحقق...</span></div><div class="offline-banner" id="offlineBanner"></div>
-        <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button>
+        <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button><button type="button" id="syncIdsBtn">مزامنة الـ ID الناقصة</button>
       </div>
 
       <div class="batch-actions">
@@ -1189,7 +1189,7 @@ document.getElementById('uploadAllBtn').onclick=uploadAll;
 document.getElementById('exportQueueBtn').onclick=exportQueueExcel;
 document.getElementById('clearQueueBtn').onclick=()=>{if(!batchQueue.length)return; if(confirm('مسح كل قائمة الانتظار؟')){batchQueue=[];saveBatchQueue();renderBatchQueue();showBatchStatus('تم مسح قائمة الانتظار.','ok')}};
 document.getElementById('apiTestBtn').onclick=async()=>{try{const d=await apiGet({action:'ping'});setOnline(!!d.success);document.getElementById('apiStatusText').textContent=d.success?'متصل بـ Google Sheets ✓':'تعذر الاتصال'}catch{setOnline(false);document.getElementById('apiStatusText').textContent='بدون اتصال'}};
-document.getElementById('downloadDataBtn').onclick=downloadData;document.getElementById('syncNowBtn').onclick=syncQueueNow;
+document.getElementById('downloadDataBtn').onclick=downloadData;document.getElementById('syncNowBtn').onclick=syncQueueNow;document.getElementById('syncIdsBtn').onclick=async function(){showSyncStatus('جاري مزامنة الـ ID...','');try{const d=await apiGet({action:'sync_ids'});showSyncStatus(d.success?d.message:('✕ '+(d.message||'فشل')),d.success?'ok':'err')}catch(e){showSyncStatus('✕ تعذر الاتصال: '+e.message,'err')}};
 // Add student button
 // === تأكيد طالب جديد — محلي بالكامل، بدون أي اتصال بالسيرفر هنا ===
 // السبب: قديماً كان الضغط على "تأكيد بيانات الطالب" بيبعت صف ناقص (اسم + رقم بس، بدون درجة) لجوجل شيتس فوراً،
@@ -1590,7 +1590,7 @@ async function deleteDuplicateRow(row){
 document.getElementById('checkDuplicatesBtn').onclick=checkDuplicates;
 lockProtectedArea();
 window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
-renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;downloadStudentsSheetData().catch(()=>{})}}
+renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;downloadStudentsSheetData().catch(()=>{})}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;downloadData().catch(()=>{})}}
 </script>
 </body>
 </html>
