@@ -589,7 +589,7 @@
           <button id="editExamBtn">تعديل يدوي</button>
         </div>
         <div id="examManualControls" style="display:none;">
-          <input type="number" id="examManualInput" min="1" max="6" value="1">
+          <input type="number" id="examManualInput" min="1" value="1">
           <button id="confirmExamBtn">تأكيد</button>
         </div>
       </div>
@@ -602,6 +602,7 @@
         <select id="taSelect">
 <option value="">اختر المساعد...</option>
 <option value="Ashraf">Ashraf</option>
+<option value="Fatoh">Fatoh</option>
 <option value="Zeyad Mohamed">Zeyad Mohamed</option>
 <option value="3b3aty">3b3aty</option>
 <option value="Gazzar">Gazzar</option>
@@ -967,7 +968,17 @@ let apiOnline=navigator.onLine;
 let localRows=loadLocalRows();
 let syncQueue=loadQueue();
 let batchQueue=loadBatchQueue();
-let selectedDayKey=null,selectedSession=null,selectedHw=null,foundStudent=null,examNumber=2,examType='class';
+// رقم الامتحان الافتراضي يزيد تلقائياً بواحد كل أسبوع بدايةً من لحظة الساعة 12 (منتصف الليل) في أول السبت.
+// السبت 29/8/2026 = Exam 2، السبت اللي بعده (5/9/2026) = Exam 3، وهكذا أسبوعياً من غير أي حد أقصى.
+function computeAutoExamNumber(){
+  const anchor=new Date(2026,7,29,0,0,0,0); // السبت 29 أغسطس 2026 — بداية اليوم بتوقيت جهاز المستخدم
+  const now=new Date();
+  const msPerWeek=7*24*60*60*1000;
+  let weeksSinceAnchor=Math.floor((now.getTime()-anchor.getTime())/msPerWeek);
+  if(weeksSinceAnchor<0)weeksSinceAnchor=0;
+  return 2+weeksSinceAnchor;
+}
+let selectedDayKey=null,selectedSession=null,selectedHw=null,foundStudent=null,examNumber=computeAutoExamNumber(),examType='class';
 // === بحث فوري أثناء الكتابة (Live Search) ===
 // liveSearchTimer: مؤقت الـ debounce بتاع البحث في السيرفر (عشان منبعتش طلب لكل حرف).
 // liveSearchToken: رقم متزايد لكل بحث جديد — يضمن إن رد متأخر من بحث قديم متلخبطش مع القيمة الحالية في الحقل.
@@ -1145,7 +1156,7 @@ function renderDays(){const bar=document.getElementById('daysBar');bar.innerHTML
 function renderSessions(){const bar=document.getElementById('sessionsBar');bar.innerHTML='';if(!selectedDayKey)return;const d=scheduleData.find(x=>x.key===selectedDayKey);d.sessions.forEach(s=>{const c=document.createElement('div');const a=selectedSession&&selectedSession.center===s.center&&selectedSession.time===s.time;c.className='session-chip'+(a?' active':'');c.innerHTML='<span class="center">'+esc(s.center)+'</span><span class="time">'+esc(s.time)+'</span>'+(s.tag?'<span class="tag">'+esc(s.tag)+'</span>':'');c.onclick=()=>{selectedSession=s;renderSessions()};bar.appendChild(c)})}
 function renderExam(){document.getElementById('examNumLabel').textContent=examType==='comprehensive'?getComprehensiveExam():'Exam '+examNumber}
 document.getElementById('editExamBtn').onclick=()=>{document.getElementById('examAutoControls').style.display='none';document.getElementById('examManualControls').style.display='flex';document.getElementById('examManualInput').value=examNumber};
-document.getElementById('confirmExamBtn').onclick=()=>{const v=parseInt(document.getElementById('examManualInput').value);if(v>=1&&v<=6){examNumber=v;renderExam()}document.getElementById('examAutoControls').style.display='block';document.getElementById('examManualControls').style.display='none'};
+document.getElementById('confirmExamBtn').onclick=()=>{const v=parseInt(document.getElementById('examManualInput').value);if(v>=1){examNumber=v;renderExam()}document.getElementById('examAutoControls').style.display='block';document.getElementById('examManualControls').style.display='none'};
 document.getElementById('taSelect').onchange=e=>{if(e.target.value==='__add__'){const n=prompt('اكتب اسم المساعد الجديد:');if(n){const o=document.createElement('option');o.value=n;o.textContent=n;e.target.insertBefore(o,e.target.lastElementChild);e.target.value=n}else e.target.value=''}};
 // Attendance controls injected above grade field.
 const gradeRow=document.getElementById('gradeInput').closest('.row');const attRow=document.createElement('div');attRow.className='row';attRow.id='attendanceRow';attRow.innerHTML='<label>حالة الحضور</label><div class="status-pills"><div class="status-pill active" data-att="حاضر في ميعاده">حاضر في ميعاده</div><div class="status-pill" data-att="متأخر">متأخر</div></div>';gradeRow.parentNode.insertBefore(attRow,gradeRow);let attendanceStatus='حاضر في ميعاده';attRow.querySelectorAll('.status-pill').forEach(x=>x.onclick=()=>{attendanceStatus=x.dataset.att;attRow.querySelectorAll('.status-pill').forEach(y=>y.classList.remove('active'));x.classList.add('active');const gi=document.getElementById('gradeInput');gi.disabled=attendanceStatus==='متأخر';gi.value='';validateGrade(false);});
