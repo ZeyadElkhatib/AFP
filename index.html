@@ -207,7 +207,7 @@
     color:var(--danger);
     display:none;
   }
-  .hw-options{display:flex;flex-direction:column;gap:8px;}
+  .hw-options{display:flex;flex-direction:row;gap:6px;flex-wrap:nowrap;}
   .hw-opt.active{
     border-color:var(--accent);
     background:rgba(201,161,91,.18);
@@ -218,13 +218,20 @@
   .hw-opt{
     background:var(--panel-alt);
     border:1px solid var(--border);
-    border-radius:10px;
-    padding:11px 14px;
+    border-radius:8px;
+    padding:8px 4px;
     cursor:pointer;
-    font-size:14px;
+    font-size:12.5px;
     display:flex;
     align-items:center;
-    justify-content:space-between;
+    justify-content:center;
+    text-align:center;
+    flex:1 1 0;
+    min-width:0;
+    line-height:1.3;
+  }
+  @media (max-width:420px){
+    .hw-opt{font-size:11.5px;padding:7px 3px;}
   }
   .hw-opt.selected{border-color:var(--gold);background:#2c2413;color:var(--gold-bright);font-weight:700;}
   .save-btn{
@@ -331,29 +338,39 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .api-panel{
     margin:12px 0 0;
-    padding:10px 12px;
+    padding:8px 10px;
     border:1px solid var(--border);
     border-radius:10px;
     background:rgba(255,255,255,.02);
     display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    font-size:12px;
+    flex-direction:column;
+    gap:6px;
+    font-size:11px;
     color:var(--text-muted);
   }
+  .api-panel-status{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .api-panel strong{color:var(--text);}
   .api-panel.ok{border-color:var(--success);background:var(--success-bg);}
   .api-panel.warn{border-color:var(--warning);background:var(--warning-bg);}
   .api-panel.err{border-color:var(--danger);background:var(--danger-bg);}
-  #apiTestBtn{
+  .api-panel-actions{display:flex;gap:5px;}
+  #apiTestBtn,#downloadDataBtn,#syncNowBtn{
     border:1px solid var(--border);
     background:var(--panel-alt);
     color:var(--text);
-    border-radius:8px;
-    padding:7px 11px;
+    border-radius:7px;
+    padding:6px 3px;
     cursor:pointer;
     font-family:'Tajawal',sans-serif;
+    font-size:11px;
+    line-height:1.25;
+    flex:1 1 0;
+    min-width:0;
+    text-align:center;
+  }
+  @media(max-width:420px){
+    #apiTestBtn,#downloadDataBtn,#syncNowBtn{font-size:10px;padding:6px 2px;}
+    .api-panel-status{font-size:10.5px;}
   }
   .sync-status.ok{color:var(--success);}
   .sync-status.warn{color:var(--warning);}
@@ -364,6 +381,27 @@
     .exam-box{gap:8px;flex-wrap:wrap;}
     table{font-size:11px;}
     th,td{padding:7px 4px;}
+
+    /* === تكثيف مسافات الفورم الرئيسي على الموبايل عشان زرار "+ إضافة للقائمة" يظهر أقرب لفوق === */
+    section{padding:12px 14px;}
+    .section-title{font-size:12.5px;margin:0 0 6px;}
+    .section-title .num{width:17px;height:17px;font-size:10.5px;}
+    .card{padding:12px;}
+    .row{margin-bottom:10px;}
+    label{font-size:11.5px;margin-bottom:4px;}
+    select, input[type=text], input[type=number], input[type=tel]{padding:8px 10px;font-size:14px;}
+    .day-pill{padding:7px 12px;font-size:12.5px;}
+    .sessions{margin-top:8px;gap:6px;}
+    .session-chip{padding:6px 10px;min-width:92px;}
+    .session-chip .center{font-size:12.5px;}
+    .session-chip .time{font-size:11px;}
+    .exam-box{padding:9px 10px;}
+    .exam-box .num{font-size:17px;}
+    .student-dual-row{gap:6px;}
+    .note{font-size:10.5px;margin-top:6px;line-height:1.4;}
+    .found,.notfound{padding:8px 10px;font-size:12.5px;margin-top:6px;}
+    .batch-actions{gap:6px;margin-top:4px;}
+    .save-btn{padding:11px;font-size:14.5px;margin-top:4px;}
   }
 
   .reports-card{margin-top:18px}
@@ -410,10 +448,12 @@
   .duplicate-badge.conflict{background:var(--danger-bg);color:#ef9a90;}
   .duplicate-meta{color:var(--text-muted);font-size:13px;line-height:1.8;}
   .duplicate-records{display:grid;gap:8px;margin-top:10px;}
-  .duplicate-record{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:9px 10px;}
+  .duplicate-record{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:9px 10px;cursor:pointer;}
   .duplicate-record-info{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;}
   .duplicate-record-info b{color:var(--gold-bright);}
   .delete-duplicate-btn{background:var(--danger-bg);border:1px solid var(--danger);color:#f1aaa2;border-radius:8px;padding:7px 10px;cursor:pointer;font-family:inherit;font-weight:700;}
+  .dup-checkbox{width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:var(--gold);}
+  #selectAllDupBtn{background:var(--panel-alt);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-family:inherit;font-weight:700;}
   .duplicate-empty{padding:18px;text-align:center;color:var(--success);background:var(--success-bg);border:1px solid #31533f;border-radius:10px;}
 
 
@@ -543,7 +583,7 @@
     <div class="card" id="examNumberSection">
       <div class="exam-box">
         <div>
-          <div class="num" id="examNumLabel">Exam 1</div>
+          <div class="num" id="examNumLabel">Exam 2</div>
         </div>
         <div id="examAutoControls">
           <button id="editExamBtn">تعديل يدوي</button>
@@ -622,15 +662,17 @@
       <div class="row" id="hwRow">
         <label>حالة الواجب</label>
         <div class="hw-options" role="group" aria-label="حالة الواجب">
-          <button type="button" class="hw-opt" data-val="full">تم حل الواجب بالكامل</button>
-          <button type="button" class="hw-opt" data-val="partial">تم حل جزء من الواجب</button>
-          <button type="button" class="hw-opt" data-val="none">لم يتم حل الواجب</button>
+          <button type="button" class="hw-opt" data-val="full">تم بالكامل</button>
+          <button type="button" class="hw-opt" data-val="partial">جزء منه</button>
+          <button type="button" class="hw-opt" data-val="none">لم يُحل</button>
         </div>
       </div>
 
       <div class="api-panel" id="apiPanel">
-        <div><strong>حالة الربط:</strong> <span id="apiStatusText">جاري التحقق...</span></div><div class="offline-banner" id="offlineBanner"></div>
-        <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button>
+        <div class="api-panel-status"><strong>حالة الربط:</strong> <span id="apiStatusText">جاري التحقق...</span><div class="offline-banner" id="offlineBanner"></div></div>
+        <div class="api-panel-actions">
+          <button type="button" id="apiTestBtn">اختبار الاتصال</button><button type="button" id="downloadDataBtn">تنزيل البيانات محلياً</button><button type="button" id="syncNowBtn">مزامنة الآن</button>
+        </div>
       </div>
 
       <div class="batch-actions">
@@ -751,6 +793,7 @@
       <button class="primary" id="checkDuplicatesBtn">فحص التكرارات</button>
       <button type="button" id="syncIdsBtn">مزامنة الـ ID الناقصة</button>
       <button type="button" id="selectAllDupBtn" style="display:none">تحديد الكل</button>
+      <button type="button" id="deleteAllDupBtn" class="delete-duplicate-btn" style="display:none">حذف الكل</button>
       <button type="button" id="deleteSelectedDupBtn" class="delete-duplicate-btn" style="display:none">حذف المحدد (<span id="selectedDupCount">0</span>)</button>
       <span class="report-count">يفحص نفس الطالب + اليوم + السنتر + الامتحان، ويعرض أي صفوف مكررة حتى لو كانت الدرجات مختلفة.</span>
     </div>
@@ -924,7 +967,7 @@ let apiOnline=navigator.onLine;
 let localRows=loadLocalRows();
 let syncQueue=loadQueue();
 let batchQueue=loadBatchQueue();
-let selectedDayKey=null,selectedSession=null,selectedHw=null,foundStudent=null,examNumber=1,examType='class';
+let selectedDayKey=null,selectedSession=null,selectedHw=null,foundStudent=null,examNumber=2,examType='class';
 // === بحث فوري أثناء الكتابة (Live Search) ===
 // liveSearchTimer: مؤقت الـ debounce بتاع البحث في السيرفر (عشان منبعتش طلب لكل حرف).
 // liveSearchToken: رقم متزايد لكل بحث جديد — يضمن إن رد متأخر من بحث قديم متلخبطش مع القيمة الحالية في الحقل.
@@ -936,7 +979,7 @@ const scheduleData=[
 {key:'sat',label:'السبت',sessions:[{center:'الشيماء',time:'8:30 ص'},{center:'الفاتح 1',time:'11:30 ص'},{center:'رسالة',time:'2:30 م',tag:'برايفت'}]},
 {key:'sun',label:'الأحد',sessions:[{center:'الشيماء',time:'8:30 ص',tag:'برايفت'},{center:'العلم والايمان',time:'11:30 ص'}]},
 {key:'mon',label:'الاثنين',sessions:[{center:'A ONE',time:'8:30 ص',tag:'برايفت'},{center:'السنيور 1',time:'11:30 ص'},{center:'التوبة',time:'2:30 م'},{center:'المنارة',time:'5:30 م'}]},
-{key:'tue',label:'الثلاثاء',sessions:[{center:'سمارت',time:'8:30 ص'},{center:'الصفوة',time:'11:30 ص'},{center:'خالد بن الوليد',time:'2:30 م'}]},
+{key:'tue',label:'الثلاثاء',sessions:[{center:'سمارت',time:'8:30 ص'},{center:'الصفوة 1',time:'11:30 ص'},{center:'خالد بن الوليد',time:'2:30 م'},{center:'الصفوة 2',time:'5:30 م'}]},
 {key:'wed',label:'الأربعاء',sessions:[{center:'تارجت',time:'8:30 ص'},{center:'سنتر K',time:'11:30 ص'},{center:'الأوائل',time:'2:30 م'}]},
 {key:'thu',label:'الخميس',sessions:[{center:'A ONE',time:'8:30 ص',tag:'برايفت'},{center:'سان جوزيف',time:'5:30 م',tag:'برايفت'}]},
 {key:'fri',label:'الجمعة',sessions:[{center:'رويال',time:'9:30 ص'},{center:'صفي الدين',time:'1:30 م'}]}
@@ -1138,6 +1181,14 @@ function clearMainForm(){
   gradeInput.disabled=false;document.getElementById('foundBox').style.display='none';document.getElementById('notfoundBox').style.display='none';document.getElementById('newStudentRow').style.display='none';document.getElementById('formErr').style.display='none';document.getElementById('gradeErr').textContent='';document.getElementById('gradeErr').style.display='none';document.getElementById('maxGradeNote').textContent='الحد الأقصى للدرجة: '+getMaxGrade();
   document.querySelectorAll('.hw-opt').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-pressed','false')});
   clearFormDraft(); // السجل خلص أو اتمسح يدوياً — مفيش حاجة ناقصة نحميها دلوقتي
+  // بعد إضافة/مسح الطالب، ركّز فوراً على خانة رقم الطالب عشان يقدر يكتب كود/رقم الطالب اللي بعده على طول من غير ما يدوس على الخانة يدوياً
+  const numInput=document.getElementById('studentNumberInput');
+  if(numInput){
+    setTimeout(()=>{
+      numInput.focus({preventScroll:false});
+      numInput.scrollIntoView({behavior:'smooth',block:'center'});
+    },50);
+  }
 }
 
 function buildQueueRecord(){
@@ -1172,7 +1223,14 @@ function exportQueueExcel(){
     const summary='Exam'+String(r.exam||'').replace(/\D/g,'')+'-'+(r.ta||'')+'-'+(r.center||'')+' ('+findSessionTime(r.day,r.center)+')';
     return headers.map(h=>h==='Summary'?csvCell(summary):csvCell(r[{Day:'day',Center:'center','Exam Number':'exam',TA:'ta','Student Number':'studentNumber','Student ID':'studentId','Student Name':'studentName',Grade:'grade',Homework:'hw',Attendance:'attendance','Exam Type':'examType'}[h]])).join(',');
   })];
-  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Ahmed_Farouk_Queue_'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);showBatchStatus('✓ تم تصدير القائمة لفتحها في Excel.','ok')
+  const first=batchQueue[0]||{};
+  const cleanPart=s=>String(s||'').trim().replace(/\s+/g,'');
+  const examPart=cleanPart(first.exam)||'Exam';
+  const taPart=cleanPart(first.ta)||'TA';
+  const centerPart=cleanPart(first.center)||'Center';
+  const timePart=cleanPart(findSessionTime(first.day,first.center)).replace(/:/g,'')||'وقت';
+  const fileName=[examPart,taPart,centerPart,timePart].join('_')+'.csv';
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fileName;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);showBatchStatus('✓ تم تصدير القائمة لفتحها في Excel.','ok')
 }
 async function syncBatchQueueNow(){
   if(!navigator.onLine||!batchQueue.length)return;
@@ -1566,6 +1624,7 @@ async function checkDuplicates(){
   const alert=document.getElementById('duplicateAlert');
   const results=document.getElementById('duplicateResults');
   const summary=document.getElementById('duplicateSummary');
+  if(!alert||!results||!summary){return;}
   alert.style.display='none';
   results.innerHTML='';
   summary.style.display='none';
@@ -1575,32 +1634,144 @@ async function checkDuplicates(){
     return;
   }
   const btn=document.getElementById('checkDuplicatesBtn');
-  btn.disabled=true; btn.textContent='جاري الفحص...';
+  if(btn){btn.disabled=true; btn.textContent='جاري الفحص...';}
   try{
     const d=await apiGet({action:'check_duplicates'});
     if(!d.success) throw Error(d.message||'فشل فحص التكرارات');
     const groups=d.duplicates||[];
     summary.innerHTML='<div class="duplicate-stat"><strong>'+groups.length+'</strong> مجموعة مكررة</div><div class="duplicate-stat"><strong>'+groups.filter(g=>g.conflict).length+'</strong> تعارض بدرجات مختلفة</div>';
     summary.style.display='flex';
+    selectedDupRows=new Set();updateDupSelectionUI();
+    const selectAllBtn=document.getElementById('selectAllDupBtn');
+    const deleteSelBtn=document.getElementById('deleteSelectedDupBtn');
+    const deleteAllBtn=document.getElementById('deleteAllDupBtn');
     if(!groups.length){
       results.innerHTML='<div class="duplicate-empty">✓ لا توجد تكرارات أو سجلات متعارضة في Google Sheets.</div>';
+      if(selectAllBtn)selectAllBtn.style.display='none';
+      if(deleteSelBtn)deleteSelBtn.style.display='none';
+      if(deleteAllBtn)deleteAllBtn.style.display='none';
       return;
     }
+    if(selectAllBtn){selectAllBtn.style.display='inline-flex';selectAllBtn.textContent='تحديد الكل';}
+    if(deleteAllBtn){deleteAllBtn.style.display='inline-flex';deleteAllBtn.textContent='حذف الكل';}
     results.innerHTML=groups.map((g,gi)=>{
       const label=g.conflict?'تعارض — درجات مختلفة':'تكرار — نفس البيانات';
       return '<div class="duplicate-group '+(g.conflict?'conflict':'')+'">'+
         '<div class="duplicate-head"><div><strong>'+esc(g.studentName||'بدون اسم')+'</strong> <span class="duplicate-meta">ID: '+esc(g.studentId||'-')+' | Number: '+esc(g.studentNumber||'-')+'</span></div>'+
         '<span class="duplicate-badge '+(g.conflict?'conflict':'')+'">'+label+'</span></div>'+
         '<div class="duplicate-meta">الامتحان: <b>'+esc(g.exam)+'</b> &nbsp;|&nbsp; عدد السجلات: <b>'+g.count+'</b></div>'+
-        '<div class="duplicate-records">'+g.records.map(r=>'<div class="duplicate-record"><div class="duplicate-record-info"><span>اليوم: <b>'+esc(r.day||g.day||'-')+'</b></span><span>السنتر: <b>'+esc(r.center||g.center||'-')+'</b></span><span>صف الشيت: <b>'+r.row+'</b></span><span>الدرجة: <b>'+esc(r.grade)+'</b></span><span>الحضور: '+esc(r.attendance)+'</span><span>TA: '+esc(r.ta||'-')+'</span></div><button class="delete-duplicate-btn" onclick="deleteDuplicateRow('+r.row+')">حذف هذا الصف</button></div>').join('')+'</div>'+
+        '<div class="duplicate-records">'+g.records.map(r=>'<div class="duplicate-record" onclick="handleDupRowClick(event,this)"><input type="checkbox" class="dup-checkbox" data-row="'+r.row+'" onchange="toggleDupSelection(this)"><div class="duplicate-record-info"><span>اليوم: <b>'+esc(r.day||g.day||'-')+'</b></span><span>السنتر: <b>'+esc(r.center||g.center||'-')+'</b></span><span>صف الشيت: <b>'+r.row+'</b></span><span>الدرجة: <b>'+esc(r.grade)+'</b></span><span>الحضور: '+esc(r.attendance)+'</span><span>TA: '+esc(r.ta||'-')+'</span></div><button class="delete-duplicate-btn" onclick="deleteDuplicateRow('+r.row+')">حذف هذا الصف</button></div>').join('')+'</div>'+
       '</div>';
     }).join('');
   }catch(e){
     alert.textContent='تعذر فحص التكرارات: '+e.message; alert.style.display='block';
+    const selectAllBtn=document.getElementById('selectAllDupBtn');
+    const deleteSelBtn=document.getElementById('deleteSelectedDupBtn');
+    const deleteAllBtn=document.getElementById('deleteAllDupBtn');
+    if(selectAllBtn)selectAllBtn.style.display='none';
+    if(deleteSelBtn)deleteSelBtn.style.display='none';
+    if(deleteAllBtn)deleteAllBtn.style.display='none';
   }finally{
-    btn.disabled=false; btn.textContent='فحص التكرارات';
+    if(btn){btn.disabled=false; btn.textContent='فحص التكرارات';}
   }
 }
+let selectedDupRows=new Set();
+function updateDupSelectionUI(){
+  const count=selectedDupRows.size;
+  const countEl=document.getElementById('selectedDupCount');
+  if(countEl)countEl.textContent=count;
+  const deleteSelBtn=document.getElementById('deleteSelectedDupBtn');
+  if(deleteSelBtn)deleteSelBtn.style.display=count>0?'inline-flex':'none';
+}
+function toggleDupSelection(cb){
+  const row=parseInt(cb.dataset.row,10);
+  if(cb.checked)selectedDupRows.add(row);else selectedDupRows.delete(row);
+  updateDupSelectionUI();
+}
+function handleDupRowClick(e,row){
+  if(e.target.classList.contains('dup-checkbox'))return;
+  if(e.target.closest('.delete-duplicate-btn'))return;
+  const cb=row.querySelector('.dup-checkbox');
+  if(!cb)return;
+  cb.checked=!cb.checked;
+  toggleDupSelection(cb);
+}
+document.getElementById('selectAllDupBtn')?.addEventListener('click',()=>{
+  const checkboxes=document.querySelectorAll('.dup-checkbox');
+  if(!checkboxes.length)return;
+  const allSelected=selectedDupRows.size===checkboxes.length;
+  checkboxes.forEach(cb=>{cb.checked=!allSelected});
+  selectedDupRows=allSelected?new Set():new Set(Array.from(checkboxes).map(cb=>parseInt(cb.dataset.row,10)));
+  const selectAllBtn=document.getElementById('selectAllDupBtn');
+  if(selectAllBtn)selectAllBtn.textContent=allSelected?'تحديد الكل':'إلغاء تحديد الكل';
+  updateDupSelectionUI();
+});
+// Google Sheets shifts every row below a deleted row up by one, so deleting
+// several rows must happen highest-row-number-first and one confirmed delete
+// at a time — otherwise a later request can hit a row that has already moved
+// and end up deleting the wrong record (or silently failing). This is why a
+// truly parallel bulk-delete is unsafe here; this version stays correct while
+// still being as fast as a single sequential pass can be, with an automatic
+// retry pass for any row that fails on the first try (network hiccups etc).
+async function bulkDeleteDuplicateRows(rows){
+  if(!rows.length)return;
+  if(!navigator.onLine){alert('الحذف يحتاج اتصالاً بالإنترنت.');return;}
+  const sortedRows=[...new Set(rows)].sort((a,b)=>b-a);
+  const total=sortedRows.length;
+  const selBtn=document.getElementById('deleteSelectedDupBtn');
+  const allBtn=document.getElementById('deleteAllDupBtn');
+  const selAllToggle=document.getElementById('selectAllDupBtn');
+  [selBtn,allBtn,selAllToggle].forEach(b=>{if(b)b.disabled=true;});
+  const setProgress=(done,failed)=>{
+    const label='جاري الحذف '+done+'/'+total+(failed?(' (تعذر '+failed+')'):'');
+    if(selBtn)selBtn.textContent=label;
+    if(allBtn)allBtn.textContent=label;
+  };
+  let done=0;
+  const failedRows=[];
+  setProgress(0,0);
+  for(const row of sortedRows){
+    try{
+      const d=await apiGet({action:'delete_duplicate',row:row});
+      if(d&&d.success)done++;else failedRows.push(row);
+    }catch(e){failedRows.push(row);}
+    setProgress(done,failedRows.length);
+  }
+  if(failedRows.length){
+    const retryList=failedRows.slice();
+    failedRows.length=0;
+    for(const row of retryList){
+      try{
+        const d=await apiGet({action:'delete_duplicate',row:row});
+        if(d&&d.success)done++;else failedRows.push(row);
+      }catch(e){failedRows.push(row);}
+      setProgress(done,failedRows.length);
+    }
+  }
+  [selBtn,allBtn,selAllToggle].forEach(b=>{if(b)b.disabled=false;});
+  if(selBtn)selBtn.textContent='حذف المحدد (0)';
+  if(allBtn)allBtn.textContent='حذف الكل';
+  if(failedRows.length){
+    const a=document.getElementById('duplicateAlert');
+    if(a){a.textContent='تم حذف '+done+' من أصل '+total+'. تعذر حذف '+failedRows.length+' صف — جرّب "حذف الكل" مرة أخرى.';a.style.display='block';}
+  }else{
+    showGlobalSuccess('✓ تم حذف '+done+' صف مكرر بنجاح');
+  }
+  selectedDupRows=new Set();
+  await checkDuplicates();
+}
+document.getElementById('deleteSelectedDupBtn')?.addEventListener('click',async()=>{
+  const rows=Array.from(selectedDupRows);
+  if(!rows.length)return;
+  if(!confirm('هل أنت متأكد من حذف '+rows.length+' صف محدد من Google Sheets؟ لا يمكن التراجع عن الحذف.'))return;
+  await bulkDeleteDuplicateRows(rows);
+});
+document.getElementById('deleteAllDupBtn')?.addEventListener('click',async()=>{
+  const rows=Array.from(document.querySelectorAll('.dup-checkbox')).map(cb=>parseInt(cb.dataset.row,10)).filter(n=>!isNaN(n));
+  if(!rows.length)return;
+  if(!confirm('هل أنت متأكد من حذف كل الصفوف المكررة الظاهرة الآن ('+rows.length+' صف) من Google Sheets؟ لا يمكن التراجع عن الحذف.'))return;
+  await bulkDeleteDuplicateRows(rows);
+});
 async function deleteDuplicateRow(row){
   if(!confirm('هل أنت متأكد من حذف الصف رقم '+row+' من Google Sheets؟ لا يمكن التراجع عن الحذف.')) return;
   if(!navigator.onLine){alert('الحذف يحتاج اتصالاً بالإنترنت.');return;}
@@ -1610,10 +1781,10 @@ async function deleteDuplicateRow(row){
     showGlobalSuccess('✓ تم حذف السجل المكرر بنجاح');
     await checkDuplicates();
   }catch(e){
-    const a=document.getElementById('duplicateAlert'); a.textContent='تعذر حذف السجل: '+e.message; a.style.display='block';
+    const a=document.getElementById('duplicateAlert'); if(a){a.textContent='تعذر حذف السجل: '+e.message; a.style.display='block';}
   }
 }
-document.getElementById('checkDuplicatesBtn').onclick=checkDuplicates;
+document.getElementById('checkDuplicatesBtn')?.addEventListener('click',checkDuplicates);
 lockProtectedArea();
 window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
 renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;setTimeout(()=>downloadStudentsSheetData().catch(()=>{}),500)}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;setTimeout(()=>downloadData().catch(()=>{}),3000)}}
