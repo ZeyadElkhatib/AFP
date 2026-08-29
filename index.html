@@ -602,7 +602,6 @@
         <select id="taSelect">
 <option value="">اختر المساعد...</option>
 <option value="Ashraf">Ashraf</option>
-<option value="Fatoh">Fatoh</option>
 <option value="Zeyad Mohamed">Zeyad Mohamed</option>
 <option value="3b3aty">3b3aty</option>
 <option value="Gazzar">Gazzar</option>
@@ -797,6 +796,7 @@
       <button type="button" id="deleteAllDupBtn" class="delete-duplicate-btn" style="display:none">حذف الكل</button>
       <button type="button" id="deleteSelectedDupBtn" class="delete-duplicate-btn" style="display:none">حذف المحدد (<span id="selectedDupCount">0</span>)</button>
       <span class="report-count">يفحص نفس الطالب + اليوم + السنتر + الامتحان، ويعرض أي صفوف مكررة حتى لو كانت الدرجات مختلفة.</span>
+      <div class="sync-status" id="syncIdsStatus"></div>
     </div>
     <div class="report-alert" id="duplicateAlert"></div>
     <div class="duplicate-summary" id="duplicateSummary" style="display:none"></div>
@@ -1284,7 +1284,17 @@ document.getElementById('uploadAllBtn').onclick=uploadAll;
 document.getElementById('exportQueueBtn').onclick=exportQueueExcel;
 document.getElementById('clearQueueBtn').onclick=()=>{if(!batchQueue.length)return; if(confirm('مسح كل قائمة الانتظار؟')){batchQueue=[];saveBatchQueue();renderBatchQueue();showBatchStatus('تم مسح قائمة الانتظار.','ok')}};
 document.getElementById('apiTestBtn').onclick=async()=>{try{const d=await apiGet({action:'ping'});setOnline(!!d.success);document.getElementById('apiStatusText').textContent=d.success?'متصل بـ Google Sheets ✓':'تعذر الاتصال'}catch{setOnline(false);document.getElementById('apiStatusText').textContent='بدون اتصال'}};
-document.getElementById('downloadDataBtn').onclick=downloadData;document.getElementById('syncNowBtn').onclick=syncQueueNow;document.getElementById('syncIdsBtn').onclick=async function(){showSyncStatus('جاري مزامنة الـ ID...','');try{const d=await apiGet({action:'sync_ids'});showSyncStatus(d.success?d.message:('✕ '+(d.message||'فشل')),d.success?'ok':'err')}catch(e){showSyncStatus('✕ تعذر الاتصال: '+e.message,'err')}};
+document.getElementById('downloadDataBtn').onclick=downloadData;document.getElementById('syncNowBtn').onclick=syncQueueNow;document.getElementById('syncIdsBtn').onclick=async function(){
+  const statusEl=document.getElementById('syncIdsStatus');
+  const showIdsStatus=(m,type)=>{if(statusEl){statusEl.textContent=m;statusEl.className='sync-status '+type;statusEl.style.display=m?'block':'none'}};
+  showIdsStatus('جاري مزامنة الـ ID...','');
+  try{
+    const d=await apiGet({action:'sync_ids'});
+    showIdsStatus(d.success?d.message:('✕ '+(d.message||'فشل')),d.success?'ok':'err');
+  }catch(e){
+    showIdsStatus('✕ تعذر الاتصال: '+e.message,'err');
+  }
+};
 // Add student button
 // === تأكيد طالب جديد — محلي بالكامل، بدون أي اتصال بالسيرفر هنا ===
 // السبب: قديماً كان الضغط على "تأكيد بيانات الطالب" بيبعت صف ناقص (اسم + رقم بس، بدون درجة) لجوجل شيتس فوراً،
@@ -1419,7 +1429,8 @@ function restoreFormDraft(){
     const sel=document.getElementById('examTypeSelect');
     if(sel){sel.value=draft.examType;sel.dispatchEvent(new Event('change'));} // يعيد استخدام منطق onchange الأصلي (إظهار/إخفاء الحقول المرتبطة)
   }
-  if(draft.examNumber)examNumber=draft.examNumber;
+  // رقم الامتحان مش بيتسترجع من الكاش القديم عمداً — لازم يفضل دايماً محسوب تلقائياً من التاريخ (يزيد كل سبت)
+  // حتى لو كان فيه كاش قديم فيه رقم امتحان مختلف من جلسة سابقة.
   if(draft.comprehensiveNumber){const cs=document.getElementById('comprehensiveNumberSelect');if(cs)cs.value=draft.comprehensiveNumber;}
   if(draft.ta){const ta=document.getElementById('taSelect');if(ta&&[...ta.options].some(o=>o.value===draft.ta))ta.value=draft.ta;}
   if(draft.studentNumber)document.getElementById('studentNumberInput').value=draft.studentNumber;
