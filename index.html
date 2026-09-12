@@ -1078,9 +1078,24 @@ function studentValueMatches(a,b){
   const na=normalizeStudentNumber(a),nb=normalizeStudentNumber(b);
   return !!na&&!!nb&&na===nb;
 }
+// httpErrorHint: يترجم كود الخطأ لسبب واضح بالعربي، عشان لو ظهر 404 أو أي HTTP error
+// المستخدم يعرف فوراً هل المشكلة في رابط الـ Web App، في صلاحيات النشر، ولا في نسخة النشر القديمة.
+function httpErrorHint(status,url){
+  if(status===404)return ' — الرابط غير موجود (404). راجع: (1) إن الرابط منسوخ بالكامل وبينتهي بـ /exec، (2) إن نسخة النشر (Deployment) دي لسه موجودة ومنشورة (Deploy > Manage deployments)، (3) إنك عملت New Version بعد آخر تعديل في كود Apps Script. الرابط المستخدم الآن: '+url;
+  if(status===401||status===403)return ' — لا يوجد إذن للوصول. تأكد إن صلاحية الويب أب "Who has access" = Anyone. الرابط المستخدم الآن: '+url;
+  if(status>=500)return ' — خطأ من سيرفر جوجل نفسه، جرّب تاني بعد قليل. الرابط المستخدم الآن: '+url;
+  return ' — الرابط المستخدم الآن: '+url;
+}
 async function downloadData(){
   const t=withTimeout(60000);
-  try{const r=await fetch(API_ENDPOINT+'?'+new URLSearchParams({action:'all_data'}),{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();if(!d.success)throw Error(d.message||'فشل تنزيل البيانات');cacheRows(normalizeRows(d.rows));renderLog();if(typeof refreshReportCacheUI==='function')refreshReportCacheUI()}
+  const url=API_ENDPOINT+'?'+new URLSearchParams({action:'all_data'});
+  try{
+    const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});
+    if(!r.ok)throw Error('HTTP '+r.status+httpErrorHint(r.status,url));
+    const d=await r.json();
+    if(!d.success)throw Error(d.message||'فشل تنزيل البيانات');
+    cacheRows(normalizeRows(d.rows));renderLog();if(typeof refreshReportCacheUI==='function')refreshReportCacheUI()
+  }
   catch(e){showSyncStatus('✕ تعذر تنزيل بيانات السجلات: '+e.message,'err');throw e}
   finally{t.clear()}
   try{await downloadStudentsSheetData();showSyncStatus('✓ تم تنزيل بيانات السجلات وبيانات الطلاب محلياً. تعمل المنصة والبحث الآن حتى بدون إنترنت.','ok')}
@@ -1106,9 +1121,10 @@ async function lookupStudent(v){
 // === تنزيل كل بيانات شيت الطلاب الجديد محلياً — عشان البحث يشتغل بدون نت ===
 async function downloadStudentsSheetData(){
   const t=withTimeout(15000);
+  const url=STUDENTS_API_ENDPOINT+'?'+new URLSearchParams({action:'all_students'});
   try{
-    const r=await fetch(STUDENTS_API_ENDPOINT+'?'+new URLSearchParams({action:'all_students'}),{method:'GET',cache:'no-store',signal:t.signal});
-    if(!r.ok)throw Error('HTTP '+r.status);
+    const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});
+    if(!r.ok)throw Error('HTTP '+r.status+httpErrorHint(r.status,url));
     const d=await r.json();
     if(!d.success)throw Error(d.message||'فشل تنزيل بيانات شيت الطلاب');
     saveStudentsSheetCache(d.students||[]);
@@ -1408,7 +1424,26 @@ document.getElementById('lookupBtn').onclick=runStudentLookup;
 document.getElementById('studentNumberInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runStudentLookup()}});
 document.getElementById('studentIdInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();runStudentLookup()}});
 // عند الكتابة الفعلية في أحد الحقلين: يُفرَّغ الحقل الآخر تلقائياً (يمنع تداخل قيمة قديمة)، وبعدها البحث الفوري يشتغل على طول.
-document.getElementById('studentNumberInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const idF=document.getElementById('studentIdInput');if(idF.value)idF.value='';liveStudentSearch();});
+// === تنقل ذكي بين "رقم الطالب" و"Student ID" حسب أول رقم يتكتب ===
+// أرقام الطلاب (Student Number/الموبايل) دايماً بتبدأ بصفر (01xxxxxxxxx)، أما الـ Student ID فمالوش شكل ثابت.
+// فلو المستخدم بدأ يكتب في خانة "رقم الطالب" ورقم مش بادئ بصفر، ده معناه إنه فعلياً بيكتب كود (ID) غلط في
+// الخانة التانية بالخطأ — فبننقل القيمة كاملة لخانة الـ Student ID وننقل معاها التركيز (focus) فوراً،
+// بدل ما نسيبه يكمل يكتب في خانة غلط من غير ما يحس.
+document.getElementById('studentNumberInput').addEventListener('input',e=>{
+  const raw=enforceDigitsOnly(e.target);
+  const idF=document.getElementById('studentIdInput');
+  if(raw&&raw[0]!=='0'){
+    e.target.value='';
+    idF.value=raw;
+    enforceDigitsOnly(idF);
+    idF.focus();
+    if(idF.setSelectionRange)idF.setSelectionRange(idF.value.length,idF.value.length);
+    liveStudentSearch();
+    return;
+  }
+  if(idF.value)idF.value='';
+  liveStudentSearch();
+});
 document.getElementById('studentIdInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const numF=document.getElementById('studentNumberInput');if(numF.value)numF.value='';liveStudentSearch();});
 document.getElementById('addStudentBtn').onclick=addNewStudent;
 // أي تفاعل في نموذج الإدخال كله (كتابة/اختيار يوم أو سنتر أو TA/ضغط زر واجب أو حضور) بيحفظ المسودة فورًا.
@@ -1632,7 +1667,19 @@ document.getElementById('editStudentNumberInput').addEventListener('blur',()=>{
   const id=document.getElementById('editStudentIdInput').value.trim();
   if(number&&!id) editLookup();
 });
-document.getElementById('editStudentNumberInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const idF=document.getElementById('editStudentIdInput');if(idF.value)idF.value=''});
+document.getElementById('editStudentNumberInput').addEventListener('input',e=>{
+  const raw=enforceDigitsOnly(e.target);
+  const idF=document.getElementById('editStudentIdInput');
+  if(raw&&raw[0]!=='0'){
+    e.target.value='';
+    idF.value=raw;
+    enforceDigitsOnly(idF);
+    idF.focus();
+    if(idF.setSelectionRange)idF.setSelectionRange(idF.value.length,idF.value.length);
+    return;
+  }
+  if(idF.value)idF.value='';
+});
 document.getElementById('editStudentIdInput').addEventListener('input',e=>{enforceDigitsOnly(e.target);const numF=document.getElementById('editStudentNumberInput');if(numF.value)numF.value=''});
 
 window.updateEdited=async function(i){const r=window.__editRecords[i],max=String(r.examType||'').includes('شامل')?60:10,g=document.getElementById('editg_'+i),v=Number(g.value),alert=document.getElementById('editAlert');if(!Number.isFinite(v)||v<0||v>max)return alert.textContent='الدرجة يجب أن تكون من 0 إلى '+max,alert.style.display='block';try{const d=await apiGet({action:'grade_update',row:r.row,grade:v,attendance:'حاضر في ميعاده'});if(!d.success)throw Error(d.message);showGlobalSuccess('✓ تم تعديل الدرجة بنجاح');editLookup()}catch(e){alert.textContent='تعذر تعديل الدرجة: '+e.message;alert.style.display='block'}};
