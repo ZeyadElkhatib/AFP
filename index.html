@@ -1051,6 +1051,26 @@ function withTimeout(ms){const c=new AbortController(),t=setTimeout(()=>c.abort(
 async function apiGet(params){const url=API_ENDPOINT+'?'+new URLSearchParams(params);const t=withTimeout(45000);try{const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
 async function apiPostViaGet(action,payload){const t=withTimeout(90000);try{const url=API_ENDPOINT+'?action='+encodeURIComponent(action)+'&payload='+encodeURIComponent(JSON.stringify(payload));const r=await fetch(url,{method:'GET',cache:'no-store',signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
 async function apiPost(action,payload){const t=withTimeout(90000);try{const r=await fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:action,...payload}),signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
+// === إضافة طالب جديد لشيت بيانات الطلاب الحقيقي (مش بس الكاش المحلي) مع طابور إعادة محاولة ===
+const STUDENT_CREATE_QUEUE_KEY='ahmed_farouk_student_create_queue_v1';
+function loadStudentCreateQueue(){try{return JSON.parse(localStorage.getItem(STUDENT_CREATE_QUEUE_KEY)||'[]')}catch{return[]}}
+let studentCreateQueue=loadStudentCreateQueue();
+function saveStudentCreateQueue(){try{localStorage.setItem(STUDENT_CREATE_QUEUE_KEY,JSON.stringify(studentCreateQueue))}catch{}}
+async function apiPostStudents(action,payload){const t=withTimeout(30000);try{const r=await fetch(STUDENTS_API_ENDPOINT,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:action,...payload}),signal:t.signal});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}finally{t.clear()}}
+function mergeStudentIntoCache(st){if(!st)return;saveStudentsSheetCache([...(studentsSheetCache||[]).filter(s=>!(studentValueMatches(s.number,st.number)||studentValueMatches(s.id,st.id))),st])}
+async function createStudentOnSheet(rec){
+  if(!rec||!rec.name||(!rec.number&&!rec.id))return;
+  const queueIt=()=>{if(!studentCreateQueue.some(q=>studentValueMatches(q.number,rec.number)&&studentValueMatches(q.id,rec.id))){studentCreateQueue.push(rec);saveStudentCreateQueue()}};
+  if(!navigator.onLine){queueIt();return}
+  try{const d=await apiPostStudents('student_create',{number:rec.number||'',id:rec.id||'',name:rec.name});if(!d||!d.success)throw Error(d&&d.message||'rejected');mergeStudentIntoCache(d.student)}
+  catch(e){queueIt()}
+}
+async function syncStudentCreateQueueNow(){
+  if(!navigator.onLine||!studentCreateQueue.length||window.__studentCreateSync)return;
+  window.__studentCreateSync=true;const remaining=[];
+  for(const rec of studentCreateQueue){try{const d=await apiPostStudents('student_create',{number:rec.number||'',id:rec.id||'',name:rec.name});if(!d||!d.success)throw Error('rejected');mergeStudentIntoCache(d.student)}catch(e){remaining.push(rec)}}
+  studentCreateQueue=remaining;saveStudentCreateQueue();window.__studentCreateSync=false;
+}
 function setOnline(v){apiOnline=v;const el=document.getElementById('offlineBanner');if(el){el.textContent=v?'🟢 متصل — البيانات تُرسل مباشرة إلى Google Sheets.':'🟠 بدون إنترنت — العمل محفوظ محلياً وسيتم رفعه تلقائياً عند عودة الاتصال.';el.style.display='block'}}
 async function syncQueueNow(){if(!navigator.onLine||!syncQueue.length)return;const remaining=[];for(const item of syncQueue){try{const r=await apiGet(item);if(!r.success)throw Error(r.message||'Sync failed')}catch(e){remaining.push(item)}}syncQueue=remaining;saveQueue();showSyncStatus(remaining.length?('باقي '+remaining.length+' عملية للمزامنة.'): 'تمت المزامنة بنجاح.','ok')}
 function showSyncStatus(m,type=''){const e=document.getElementById('syncStatus');if(e){e.textContent=m;e.className='sync-status '+type;e.style.display=m?'block':'none'}}
@@ -1236,6 +1256,7 @@ function addToBatch(){
   const alreadyCached=(studentsSheetCache||[]).some(s=>studentValueMatches(s.number,rec.studentNumber)||studentValueMatches(s.id,rec.studentId));
   if(!alreadyCached&&(rec.studentNumber||rec.studentId)){
     saveStudentsSheetCache([...(studentsSheetCache||[]),{number:rec.studentNumber||'',id:rec.studentId||'',name:rec.studentName||''}]);
+    createStudentOnSheet({number:rec.studentNumber||'',id:rec.studentId||'',name:rec.studentName||''}); // يتسجل فعلياً في شيت الطلاب، ويُعاد تلقائياً لو فشل
   }
   const key=queueKey(rec), existing=batchQueue.findIndex(x=>queueKey(x)===key);
   if(existing>=0){batchQueue[existing]=rec;showBatchStatus('هذا الطالب والامتحان موجودان بالفعل؛ تم تحديث السجل في القائمة.','warn')}else{batchQueue.push(rec);showBatchStatus('✓ تمت إضافة الطالب إلى قائمة الانتظار.','ok')}
@@ -1855,8 +1876,8 @@ async function deleteDuplicateRow(row){
 }
 document.getElementById('checkDuplicatesBtn')?.addEventListener('click',checkDuplicates);
 lockProtectedArea();
-window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
-renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;setTimeout(()=>downloadStudentsSheetData().catch(()=>{}),500)}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;setTimeout(()=>downloadData().catch(()=>{}),3000)}}
+window.addEventListener('online',()=>{setOnline(true);syncQueueNow();syncBatchQueueNow();syncStudentCreateQueueNow()});window.addEventListener('offline',()=>setOnline(false));setOnline(navigator.onLine);
+renderComprehensiveNumbers();document.getElementById('comprehensiveNumberRow').style.display='none';renderBatchQueue();restoreFormDraft();renderDays();renderSessions();renderExam();renderLog();loadReportDays();if(navigator.onLine){setTimeout(()=>syncBatchQueueNow(),1500);setTimeout(()=>syncStudentCreateQueueNow(),2500);if(!window.__studentsSheetPrefetchStarted){window.__studentsSheetPrefetchStarted=true;setTimeout(()=>downloadStudentsSheetData().catch(()=>{}),500)}if(!window.__mainDataPrefetchStarted){window.__mainDataPrefetchStarted=true;setTimeout(()=>downloadData().catch(()=>{}),3000)}}
 </script>
 </body>
 </html>
